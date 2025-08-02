@@ -11,19 +11,20 @@ var con = mysql.createConnection({
 });
 
 
-exports.login=async (req, res) => {
+exports.login = async (req, res) => {
+    try {
+        const { usertype, username, password } = req.body;
+        
+        if (!usertype || !username || !password) {
+            return res.status(400).render('index', { msg: "Please Enter Usertype, UserName and Password" });
+        }
 
-    try{
-        const{usertype,username,password }=req.body;
-        if(!usertype || !username || !password){
-            return res.status(400).render('index',{msg:"Please Enter Usertype, UserName and Password"})
-         }
-
-         else if (usertype == "admin"){
-         con.query('SELECT * FROM admin WHERE username = ?',[username],async(error,result)=>{
-            if(error){
-                throw error  
-            }
+        if (usertype === "admin") {
+            con.query('SELECT * FROM admin WHERE username = ?', [username], async (error, result) => {
+                if (error) {
+                    console.error(error);
+                    return res.status(500).render('index', { msg: "Database error occurred" });
+                }
 
             if (result.length<=0 ){
                 return res.status(401).render('index',{msg:'User Not Found'})
@@ -44,9 +45,7 @@ exports.login=async (req, res) => {
                         httpOnly:true,
                     }
                     res.cookie('admin',token,cookieoperation);
-                    res.status(200).redirect('/admin')
-                    
-                    // res.render('admin',{msg:'Admin'})
+                    return res.status(200).redirect('/admin');
             }
             }
          })
@@ -78,7 +77,7 @@ exports.login=async (req, res) => {
                     }
                     res.cookie('teacher',token,cookieoperation);
                     console.log('token: '+ token)
-                    res.status(200).redirect('/home')
+                    return res.status(200).redirect('/home')
                         
                     }
                 }
@@ -141,81 +140,68 @@ exports.login=async (req, res) => {
     // }
 };
 
-exports.isloggedin = async (req, res, next) =>{
-    // req.name = 'check login'
-
-    if(req.cookies.admin){
-
-        try{
-            const decode = await promisify(jwt.verify)(
-                req.cookies.admin,
-                process.env.JWT_SECRECT
-            )
-            console.log(decode)
-            con.query('select * from teacher ',(err,result)=>{
-                // console.log(result)
-
-                if(!result){
-                    return next()
-                }
-                req.user = result
-                return next()
-            })
-
-            con.query('select * from students ',(err,result)=>{
-                // console.log(result)
-
-                if(!result){
-                    return next()
-                }
-                req.students = result
-                return next()
-            })
-        }
-      catch(error){
-        console.log(error)
-        return next()
-      }
+exports.isloggedin = async (req, res, next) => {
+    if (!req.cookies.admin) {
+        return res.redirect('/');
     }
 
-    else{
-        next();
+    try {
+        const decoded = await promisify(jwt.verify)(req.cookies.admin, process.env.JWT_SECRECT);
+        console.log(decoded);
 
+        const [teachers, students] = await Promise.all([
+            new Promise((resolve, reject) => {
+                con.query('SELECT * FROM teacher', (err, result) => {
+                    if (err) return reject(err);
+                    resolve(result || []);
+                });
+            }),
+            new Promise((resolve, reject) => {
+                con.query('SELECT * FROM students', (err, result) => {
+                    if (err) return reject(err);
+                    resolve(result || []);
+                });
+            })
+        ]);
+
+        req.user = teachers;
+        req.students = students;
+        next();
+    } catch (error) {
+        console.error('Auth error:', error);
+        res.clearCookie('admin');
+        res.redirect('/');
     }
 }
 
 
-exports.isloggedin2 = async (req, res, next) =>{
-
-    if(req.cookies.teacher){
-
-        try{
-            const decode = await promisify(jwt.verify)(
-                req.cookies.teacher,
-                process.env.JWT_SECRECT
-            )
-            console.log(decode)
-            module.exports.id = decode.id;
-            console.log(module.exports.id)
-            con.query('select * from teacher where id=? ',[decode.id],(err,result)=>{
-                console.log(result)
-            
-                if(!result){
-                    return
-                }
-                else{
-                    req.user = result
-                }
-            })
-            next();
-        }
-      catch(error){
-        console.log(error)
-        return next()
-      }
+exports.isloggedin2 = async (req, res, next) => {
+    if (!req.cookies.teacher) {
+        return res.redirect('/');
     }
-    else{
-        res.redirect('/login')
+
+    try {
+        const decoded = await promisify(jwt.verify)(req.cookies.teacher, process.env.JWT_SECRECT);
+        module.exports.id = decoded.id;
+
+        const teacher = await new Promise((resolve, reject) => {
+            con.query('SELECT * FROM teacher WHERE id = ?', [decoded.id], (err, result) => {
+                if (err) return reject(err);
+                resolve(result && result.length > 0 ? result : null);
+            });
+        });
+
+        if (!teacher) {
+            res.clearCookie('teacher');
+            return res.redirect('/');
+        }
+
+        req.user = teacher;
+        next();
+    } catch (error) {
+        console.error('Teacher auth error:', error);
+        res.clearCookie('teacher');
+        res.redirect('/');
     }
 }
 
