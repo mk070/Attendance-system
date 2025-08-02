@@ -377,19 +377,25 @@ exports.findreport = async(req,res,next)=>{
 // faculty CURD operations
 
 exports.addfaculty = async(req,res,next)=>{
-
-    const {id,name,subject,username, password}=req.body;
-    
-    
-    var sql = "INSERT INTO `teacher`(`id`, `name`, `subject`, `username`, `password`) VALUES ?"
-    var values = [[id,name,subject, username, password]];
-
-    con.query(sql,[values], (error, result) => {
-            if(error) throw error;
-            let facultyadded = encodeURIComponent('User added Successfully !')
-            res.redirect('/faculty?facultyadded='+facultyadded)
+    try {
+        const {name, username, password} = req.body;
+        
+        // Only include fields that exist in the teacher table
+        var sql = "INSERT INTO `teacher`(`name`, `username`, `password`) VALUES (?, ?, ?)";
+        
+        con.query(sql, [name, username, password], (error, result) => {
+            if (error) {
+                console.error('Error adding teacher:', error);
+                return res.status(500).send('Error adding teacher');
+            }
+            
+            let facultyadded = encodeURIComponent('User added Successfully!');
+            res.redirect('/faculty?facultyadded=' + facultyadded);
         });
-
+    } catch (error) {
+        console.error('Error in addfaculty:', error);
+        res.status(500).send('Internal Server Error');
+    }
 }
 
 exports.findfaculty = async(req,res)=>{
@@ -417,20 +423,25 @@ exports.editfaculty = async(req,res,next)=>{
 }
 
 exports.updatefaculty = async(req,res,next)=>{
+    try {
+        const {name, username, password} = req.body;
+        
+        // Only update the fields that exist in the teacher table
+        var sql = "UPDATE teacher SET name=?, username=?, password=? WHERE id=?";
 
-    const {name,subject,username, password}=req.body;
-    
-    
-    var sql = "update teacher set name=?, subject=?, username=?, password=? where id=?";
+        con.query(sql, [name, username, password, req.params.id], (error, result) => {
+            if(error) {
+                console.error('Error updating teacher:', error);
+                return res.status(500).send('Error updating teacher');
+            }
 
-    con.query(sql,[name,subject, username, password, req.params.id], (error, result) => {
-            if(error) throw error;
-
-            let facultyupdated = encodeURIComponent('updated')
-
-
-            res.redirect('/faculty?facultyupdated='+facultyupdated)
+            let facultyupdated = encodeURIComponent('updated');
+            res.redirect('/faculty?facultyupdated=' + facultyupdated);
         });
+    } catch (error) {
+        console.error('Error in updatefaculty:', error);
+        res.status(500).send('Internal Server Error');
+    }
 
 }
 
