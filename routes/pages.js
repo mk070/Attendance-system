@@ -6,13 +6,7 @@ const clientcontroller = require('../controllers/client');
 const { render } = require('ejs');
 
 
-var con =mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database:process.env.DATABASE
-
-});
+const con = require("../database");
  
  
 router.get(['/','/login'],function(req, res){
@@ -55,9 +49,7 @@ router.get('/faculty',usercontroller.isloggedin,function(req, res){
 router.post('/addfaculty',clientcontroller.addfaculty)
 
 
-router.get('/edit-faculty/:id',clientcontroller.editfaculty,(req,res)=>{
-    res.render('edit-faculty')
-})
+router.get('/edit-faculty/:id', clientcontroller.editfaculty);
 
 router.post('/edit-faculty/:id',clientcontroller.updatefaculty)
 
@@ -67,24 +59,21 @@ router.post('/faculty-search',clientcontroller.findfaculty)
 router.get('/deletefaculty/:id',clientcontroller.deletefaculty)
 
 
-router.get('/students',usercontroller.isloggedin, clientcontroller.studentdata,function(req, res){
-    if(req.user || data){
-        let addedalert = req.query.studentadded
-        let updatealert = req.query.studentupdated
-        let deletealert = req.query.studentremoved
-         res.render('students',{student: data,addedalert,deletealert,updatealert});
-    }
-    else{
-        res.redirect('/login')
+router.get('/students', usercontroller.isloggedin, clientcontroller.studentdata, function(req, res) {
+    if (req.user || req.data) {
+        let addedalert = req.query.studentadded;
+        let updatealert = req.query.studentupdated;
+        let deletealert = req.query.studentremoved;
+        res.render('students', { student: req.data, addedalert, deletealert, updatealert });
+    } else {
+        res.redirect('/login');
     }
 });
 
 
 router.post('/addstudent',clientcontroller.addstudent)
 
-router.get('/edit-student/:id',clientcontroller.editstudent,(req,res)=>{
-    res.render('edit-student')
-})
+router.get('/edit-student/:id', clientcontroller.editstudent);
 
 router.post('/edit-student/:id',clientcontroller.updatestudent)
 
@@ -95,14 +84,7 @@ router.get('/deletestudent/:id',clientcontroller.deletestudent)
 
 
 
-router.get('/reports',usercontroller.isloggedin,function(req, res){
-    if(req.user){
-            router.get('/reports',clientcontroller.report)
-        }
-        else{
-            res.redirect('/login')
-        }
-});
+router.get('/reports', usercontroller.isloggedin, clientcontroller.report);
 router.post('/report-search',clientcontroller.findreport)
 
 

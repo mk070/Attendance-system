@@ -1,4 +1,5 @@
 const { compare } = require("bcrypt");
+const bcrypt = require('bcryptjs');
 const mysql =require("mysql");
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken' );
@@ -12,12 +13,7 @@ const Plivo = require('plivo');
 const { response } = require("express");
 
 
-var con = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database:process.env.DATABASE
-});
+const con = require("../database");
 
 
 //home page
@@ -336,59 +332,63 @@ exports.save_attendance = async (req, res, next) => {
 };
 
 
-exports.findattendance = async(req,res)=>{
+exports.findattendance = async (req, res) => {
+    let searchterm = req.body.search;
 
-    let searchterm = req.body.search
+    sql = "SELECT * FROM students WHERE firstname LIKE ?";
 
-    sql="select * from students where firstname LIKE ?"
-
-    con.query(sql,['%'+searchterm+'%'],(err,result)=>{
-        if(err) throw err;
-        console.log(result)
-        res.render('attendance',{students: result , addedalert:"",deletealert:'',updatealert :''})
-    })
-}
+    con.query(sql, ['%' + searchterm + '%'], (err, result) => {
+        if (err) {
+            console.error('Error finding attendance:', err);
+            return res.status(500).send('Error finding attendance');
+        }
+        res.render('attendance', { students: result, addedalert: "", deletealert: '', updatealert: '', slot: '' });
+    });
+};
 
 //report page
 
-exports.report = async(req,res)=>{
+exports.report = async (req, res) => {
+    sql = 'SELECT * FROM students';
+    con.query(sql, (error, result) => {
+        if (error) {
+            console.error('Error fetching report data:', error);
+            return res.status(500).send('Error fetching report data');
+        }
+        res.render('reports', { student: result });
+    });
+};
 
-    sql='select * from students '
-     con.query(sql,(error,result)=>{
-        if(error) throw error;
-        res.render('reports',{student:result})
-     });
-}
+exports.findreport = async (req, res, next) => {
+    let searchterm = req.body.search;
 
-exports.findreport = async(req,res,next)=>{
+    sql = "SELECT * FROM students WHERE firstname LIKE ?";
 
-    let searchterm = req.body.search
-
-    sql="select * from students where firstname LIKE ?"
-
-    con.query(sql,['%'+searchterm+'%'],(err,result)=>{
-        if(err) throw err;
-        console.log(result)
-        res.render('reports',{student: result , addedalert:"",deletealert:'',updatealert :''})
-    })
-}
+    con.query(sql, ['%' + searchterm + '%'], (err, result) => {
+        if (err) {
+            console.error('Error finding report:', err);
+            return res.status(500).send('Error finding report');
+        }
+        res.render('reports', { student: result, addedalert: "", deletealert: '', updatealert: '' });
+    });
+};
 
 
 // faculty CURD operations
 
-exports.addfaculty = async(req,res,next)=>{
+exports.addfaculty = async (req, res, next) => {
     try {
-        const {name, username, password} = req.body;
-        
-        // Only include fields that exist in the teacher table
+        const { name, username, password } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         var sql = "INSERT INTO `teacher`(`name`, `username`, `password`) VALUES (?, ?, ?)";
-        
-        con.query(sql, [name, username, password], (error, result) => {
+
+        con.query(sql, [name, username, hashedPassword], (error, result) => {
             if (error) {
                 console.error('Error adding teacher:', error);
                 return res.status(500).send('Error adding teacher');
             }
-            
+
             let facultyadded = encodeURIComponent('User added Successfully!');
             res.redirect('/faculty?facultyadded=' + facultyadded);
         });
@@ -398,39 +398,54 @@ exports.addfaculty = async(req,res,next)=>{
     }
 }
 
-exports.findfaculty = async(req,res)=>{
+exports.findfaculty = async (req, res) => {
+    let searchterm = req.body.search;
 
-    let searchterm = req.body.search
+    sql = "SELECT * FROM teacher WHERE name LIKE ?";
 
-    sql="select * from teacher where name LIKE ?"
+    con.query(sql, ['%' + searchterm + '%'], (err, result) => {
+        if (err) {
+            console.error('Error finding faculty:', err);
+            return res.status(500).send('Error finding faculty');
+        }
+        res.render('faculty', { teacher: result, addedalert: "", deletealert: '', updatealert: '' });
+    });
+};
 
-    con.query(sql,['%'+searchterm+'%'],(err,result)=>{
-        if(err) throw err;
-        res.render('faculty',{teacher: result , addedalert:"",deletealert:'',updatealert :''})
-    })
-}
-
-exports.editfaculty = async(req,res,next)=>{
-
-    var sql = "select * from teacher where id = ?"
+exports.editfaculty = async (req, res, next) => {
+    var sql = "SELECT * FROM teacher WHERE id = ?";
     var values = [[req.params.id]];
-    con.query(sql,[values], (error, result) => {
-            if(error) throw error;
-            res.render('edit-faculty',{teacher: result})
-            console.log(result)
-        });
+    con.query(sql, [values], (error, result) => {
+        if (error) {
+            console.error('Error fetching faculty data for edit:', error);
+            return res.status(500).send('Error fetching faculty data');
+        }
+        res.render('edit-faculty', { teacher: result });
+    });
+};
 
-}
-
-exports.updatefaculty = async(req,res,next)=>{
+exports.updatefaculty = async (req, res, next) => {
     try {
-        const {name, username, password} = req.body;
-        
-        // Only update the fields that exist in the teacher table
-        var sql = "UPDATE teacher SET name=?, username=?, password=? WHERE id=?";
+        const { name, username, password } = req.body;
+        let hashedPassword;
+        if (password) {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
 
-        con.query(sql, [name, username, password, req.params.id], (error, result) => {
-            if(error) {
+        // Only update the fields that exist in the teacher table
+        var sql = "UPDATE teacher SET name=?, username=?";
+        const params = [name, username];
+
+        if (hashedPassword) {
+            sql += ", password=?";
+            params.push(hashedPassword);
+        }
+
+        sql += " WHERE id=?";
+        params.push(req.params.id);
+
+        con.query(sql, params, (error, result) => {
+            if (error) {
                 console.error('Error updating teacher:', error);
                 return res.status(500).send('Error updating teacher');
             }
@@ -445,113 +460,115 @@ exports.updatefaculty = async(req,res,next)=>{
 
 }
 
-exports.deletefaculty = async(req,res,next)=>{
-
-    
-    
-    var sql = "delete from teacher where id = ?"
+exports.deletefaculty = async (req, res, next) => {
+    var sql = "DELETE FROM teacher WHERE id = ?";
     var values = [[req.params.id]];
-    con.query(sql,[values], (error, result) => {
-            if(error) throw error;
+    con.query(sql, [values], (error, result) => {
+        if (error) {
+            console.error('Error deleting faculty:', error);
+            return res.status(500).send('Error deleting faculty');
+        }
 
-            let facultyremoved = encodeURIComponent('removed')
-
-            res.redirect('/faculty?facultyremoved='+facultyremoved)
-            console.log(result)
-        });
-
-}
+        let facultyremoved = encodeURIComponent('removed');
+        res.redirect('/faculty?facultyremoved=' + facultyremoved);
+    });
+};
 
 
 // student CURD operations
 
 
-exports.studentdata= async(req,res,next)=>{
-    
-    con.query('SELECT * from students',(err,results)=>{
-        if (err) {throw err};
-            data = results
-        console.log(req.data)
 
-    } )
-}
+exports.studentdata = (req, res, next) => {
+    con.query('SELECT * FROM students', (err, results) => {
+        if (err) {
+            console.error('Error fetching student data:', err);
+            // It's generally better to render an error page or send a JSON response
+            // rather than just throwing the error, as it gives you more control over
+            // what the user sees. However, for this specific case, we will pass
+            // the error to the next middleware to be handled by a dedicated error handler.
+            return next(err);
+        }
+        // Attach the fetched data to the request object to be used in the next middleware.
+        req.data = results;
+        // Pass control to the next middleware in the stack.
+        next();
+    });
+};
 
 
-exports.addstudent = async(req,res,next)=>{
 
-    const {id,regno,firstname,lastname, phoneno}=req.body;
-    
-    
-    var sql = "INSERT INTO `students`(`id`, `regno`, `firstname`, `lastname`, `phoneno`) VALUES ?"
-    var values = [[id,regno,firstname,lastname, phoneno]];
+exports.addstudent = async (req, res, next) => {
+    const { id, regno, firstname, lastname, phoneno } = req.body;
 
-    con.query(sql,[values], (error, result) => {
-            if(error) throw error;
-            let studentadded = encodeURIComponent('User added Successfully !')
-            res.redirect('/students?studentadded='+studentadded)
-        });
+    var sql = "INSERT INTO `students`(`id`, `regno`, `firstname`, `lastname`, `phoneno`) VALUES ?";
+    var values = [[id, regno, firstname, lastname, phoneno]];
 
-}
+    con.query(sql, [values], (error, result) => {
+        if (error) {
+            console.error('Error adding student:', error);
+            return res.status(500).send('Error adding student');
+        }
+        let studentadded = encodeURIComponent('User added Successfully !');
+        res.redirect('/students?studentadded=' + studentadded);
+    });
+};
 
-exports.editstudent = async(req,res,next)=>{
-    
-    var sql = "select * from students where id = ?"
+exports.editstudent = async (req, res, next) => {
+    var sql = "SELECT * FROM students WHERE id = ?";
     var values = [[req.params.id]];
-    con.query(sql,[values], (error, result) => {
-            if(error) throw error;
-            res.render('edit-student',{student: result})
-            console.log(result)
-        });
+    con.query(sql, [values], (error, result) => {
+        if (error) {
+            console.error('Error fetching student data for edit:', error);
+            return res.status(500).send('Error fetching student data');
+        }
+        res.render('edit-student', { student: result });
+    });
+};
 
-}
+exports.updatestudent = async (req, res, next) => {
+    const { firstname, lastname, regno, phoneno } = req.body;
 
-exports.updatestudent = async(req,res,next)=>{
+    var sql = "UPDATE students SET firstname=?, lastname=?, regno=?, phoneno=? WHERE id=?";
 
-    const {firstname,lastname,regno, phoneno}=req.body;
-    
-    
-    var sql = "update students set firstname=?, lastname=?, regno=?, phoneno=? where id=?";
+    con.query(sql, [firstname, lastname, regno, phoneno, req.params.id], (error, result) => {
+        if (error) {
+            console.error('Error updating student:', error);
+            return res.status(500).send('Error updating student');
+        }
 
-    con.query(sql,[firstname,lastname, regno, phoneno, req.params.id], (error, result) => {
-            if(error) throw error;
+        let studentupdated = encodeURIComponent('updated');
+        res.redirect('/students?studentupdated=' + studentupdated);
+    });
+};
 
-            let studentupdated = encodeURIComponent('updated')
-
-
-            res.redirect('/students?studentupdated='+studentupdated)
-        });
-
-}
-
-exports.deletestudent = async(req,res,next)=>{
-
-    
-    
-    var sql = "delete from students where id = ?"
+exports.deletestudent = async (req, res, next) => {
+    var sql = "DELETE FROM students WHERE id = ?";
     var values = [[req.params.id]];
-    con.query(sql,[values], (error, result) => {
-            if(error) throw error;
+    con.query(sql, [values], (error, result) => {
+        if (error) {
+            console.error('Error deleting student:', error);
+            return res.status(500).send('Error deleting student');
+        }
 
-            let studentremoved = encodeURIComponent('removed')
+        let studentremoved = encodeURIComponent('removed');
+        res.redirect('/students?studentremoved=' + studentremoved);
+    });
+};
 
-            res.redirect('/students?studentremoved='+studentremoved)
-            console.log(result)
-        });
+exports.findstudent = async (req, res, next) => {
+    let searchterm = req.body.search;
 
-}
+    sql = "SELECT * FROM students WHERE firstname LIKE ?";
 
-exports.findstudent = async(req,res,next)=>{
-
-    let searchterm = req.body.search
-
-    sql="select * from students where firstname LIKE ?"
-
-    con.query(sql,['%'+searchterm+'%'],(err,result)=>{
-        if(err) throw err;
-        console.log(result)
-        res.render('students',{student: result , addedalert:"",deletealert:'',updatealert :''})
-    })
-}
+    con.query(sql, ['%' + searchterm + '%'], (err, result) => {
+        if (err) {
+            console.error('Error finding student:', err);
+            return res.status(500).send('Error finding student');
+        }
+        res.render('students', { student: result, addedalert: "", deletealert: '', updatealert: '' });
+    });
+};
 
 
 // sms alert

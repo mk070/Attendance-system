@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/modern.css">
+</head>
+<body>
+    <div class="d-flex">
+        <div class="sidebar vh-100 d-flex flex-column p-3" style="width: 280px;">
+            <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+                <i class="bi bi-person-circle fs-4 me-2"></i>
+                <span class="fs-4">Admin</span>
+            </a>
+            <hr>
+            <ul class="nav nav-pills flex-column mb-auto">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link text-white <%= (typeof page !== 'undefined' && page === 'admin') ? 'active' : '' %>">
+                        <i class="bi bi-house-door me-2"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="/faculty" class="nav-link text-white <%= (typeof page !== 'undefined' && page === 'faculty') ? 'active' : '' %>">
+                        <i class="bi bi-people me-2"></i>
+                        Faculty
+                    </a>
+                </li>
+                <li>
+                    <a href="/students" class="nav-link text-white <%= (typeof page !== 'undefined' && page === 'students') ? 'active' : '' %>">
+                        <i class="bi bi-person-badge me-2"></i>
+                        Students
+                    </a>
+                </li>
+                <li>
+                    <a href="/reports" class="nav-link text-white <%= (typeof page !== 'undefined' && page === 'reports') ? 'active' : '' %>">
+                        <i class="bi bi-file-earmark-bar-graph me-2"></i>
+                        Reports
+                    </a>
+                </li>
+                <li>
+                    <a href="/calander" class="nav-link text-white <%= (typeof page !== 'undefined' && page === 'calander') ? 'active' : '' %>">
+                        <i class="bi bi-calendar-event me-2"></i>
+                        Calendar
+                    </a>
+                </li>
+            </ul>
+            <hr>
+            <div class="dropdown">
+                <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img src="/img/avatar.svg" alt="" width="32" height="32" class="rounded-circle me-2">
+                    <strong><%= user.name %></strong>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
+                    <li><a class="dropdown-item" href="/auth/adminlogout">Sign out</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="flex-grow-1 p-4">
